@@ -1,37 +1,52 @@
-table_size = 10**7 #for hash table
-p = 37 #for polynomial rolling hash
+table_size = 10**7 + 7
+pr = 37
 
-def poly_roll_hash(s):
+def poly_roll_hash(s, p):
     h = 0
-    m = len(s)
-    m -= 1
     for char in s:
-        h+= ord(char) * (p**m) % table_size
-        m-= 1
+        h = (h * p + ord(char)) % table_size
     return h
 
+def next_idx(s, i):
+    h1 = poly_roll_hash(s, 31)
+    h2 = poly_roll_hash(s, pr)
+    if h2 == 0:
+        h2 = 1
+    return (h1 + i * h2) % table_size
+
 class Node:
-    def __init__(self,value):
+    def __init__(self, value):
         self.value = value
-        self.nx = None
-
-    def update_next(self,nxt):
-        self.nx = nxt
-
+        self.probe_dist = 0
+        self.deleted = 0
 
 class Table:
-    def __init__(self,size = table_size):
+    def __init__(self, size = table_size):
         self.size = size
         self.table = [None] * size
 
-    def ins(self,s):
-        index = poly_roll_hash(s)
-        curr = self.table[index]
-        if curr:
-            while curr.nx:
-                curr = curr.nx
-            nd = Node(s)
-            curr.nx = nd
-        else:
-            curr = Node(s)
-            self.table[index] = curr
+    def ins(self, s):
+        home = poly_roll_hash(s, pr) % self.size
+        pd = 0
+        i = 0
+        new_entry = Node(s)
+        curr = None
+
+        while True:
+            idx = next_idx(s, i)
+            curr = self.table[idx]
+
+            if curr is None or curr.deleted:
+                new_entry.probe_dist = pd
+                self.table[idx] = new_entry
+                return True
+
+            if curr.value == s:
+                return False
+
+            if new_entry.probe_dist > curr.probe_dist:
+                self.table[idx], new_entry = new_entry, curr
+
+            i += 1
+            pd += 1
+            new_entry.probe_dist += 1
