@@ -3,14 +3,17 @@ import random
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 from textwrap import shorten
-
 # -------------------- SLPA Implementation --------------------
 
-def run_slpa(G, T=20, r=0.3, update_nodes=None):
+def run_slpa(G, T=20, r=0.5, update_nodes=None):
     """
     Standard or restricted SLPA (Speaker-Listener Label Propagation Algorithm).
     If update_nodes is given, restricts propagation to those nodes (used in dynamic updates).
+    
+    This version weights speaker influence by (1 / edge_weight),
+    favoring "shorter" (lower-weight) edges.
     """
+    r = random.uniform(0.2,0.3)
     nodes = list(G.nodes())
     mem = {v: Counter({v: 1}) for v in nodes}
 
@@ -18,42 +21,48 @@ def run_slpa(G, T=20, r=0.3, update_nodes=None):
         random.shuffle(nodes)
         for listener in nodes:
             if update_nodes is not None and listener not in update_nodes:
-                continue  # only update affected nodes
-
+                continue  
             speakers = list(G.neighbors(listener))
             if update_nodes is not None:
                 speakers = [s for s in speakers if s in update_nodes]
-
             if not speakers:
                 continue
-
-            # Each speaker sends one label based on memory frequency
-            labels = []
+            weighted_labels = Counter()  
             for s in speakers:
-                labels.extend(random.choices(
+                if not mem[s]: continue  
+        
+                label = random.choices(
                     population=list(mem[s].keys()),
-                    weights=list(mem[s].values()), k=1))
-
-            # Listener chooses most frequent label
-            chosen = Counter(labels).most_common(1)[0][0]
+                    weights=list(mem[s].values()), k=1)[0]
+                edge_data = G.get_edge_data(listener, s)
+                edge_weight = edge_data.get('weight', 1) if edge_data else 1
+                if edge_weight>30:
+                    influence = (edge_weight + 1e-6)
+                    weighted_labels[label] += influence
+            if not weighted_labels:
+                continue
+            pop, weights = list(weighted_labels.keys()), list(weighted_labels.values())
+            chosen = random.choices(population=pop, weights=weights, k=1)[0]
             mem[listener][chosen] += 1
 
     # Post-processing: build communities
     communities = defaultdict(list)
     for v in nodes:
+        if v not in mem: continue # Handle nodes that might have been removed
         total = sum(mem[v].values())
+        if total == 0: continue
+            
         for label, count in mem[v].items():
             if count / total >= r:
                 communities[label].append(v)
     return dict(communities), mem
-
-
 # -------------------- Dynamic SLPA (SLPAD) --------------------
+
+# -------------------- Dynamic SLPA (SLPAD) (Corrected) --------------------
 
 def dynamic_slpa(G, mem, communities, changes):
     """
-    Implements the dynamic SLPA update process
-    changes: list of (type, data) where type in {"add_edge", "remove_edge", "add_node", "remove_node"}
+    Implements the dynamic SLPA update process (Corrected version)
     """
     removed_nodes = set()
     update_nodes = set()
@@ -81,62 +90,75 @@ def dynamic_slpa(G, mem, communities, changes):
                 removed_nodes.add(u)
                 if u in mem:
                     del mem[u]
+                
+                # --- BETTER CLEANUP STEP 1 ---
+                # Immediately remove the node from all community lists
+                for cid in list(communities.keys()):
+                    if u in communities[cid]:
+                        communities[cid].remove(u)
+                        # If community is now empty, remove it
+                        if not communities[cid]:
+                            del communities[cid]
 
-    # -------- Step 1: Cleanup --------
-    # Remove labels of deleted nodes from all memories
+    # -------- Step 1: Cleanup (Now just for 'mem') --------
+    # This is still necessary to remove deleted nodes as LABELS
     for v in mem:
         for r in removed_nodes:
             mem[v].pop(r, None)
 
     # -------- Step 2: Expand update set --------
-    # Include nodes in same communities as update_nodes
     for c_nodes in communities.values():
-        if update_nodes & set(c_nodes):
+        if update_nodes.intersection(c_nodes): # Use intersection for safety
             update_nodes.update(c_nodes)
 
-    # Include neighbors of affected nodes
     for u in list(update_nodes):
-        update_nodes.update(G.neighbors(u))
+        if u in G: # Check node still exists
+            update_nodes.update(G.neighbors(u))
+    
+    # Ensure we don't try to update nodes that were just removed
+    update_nodes.difference_update(removed_nodes)
+    
+    if not update_nodes:
+        # No updates needed, return the (slightly modified) state
+        return communities, mem
 
     # -------- Step 3: Reset affected memories --------
     for u in update_nodes:
-        mem[u] = Counter({u: 1})
+        if u in G: # Only reset nodes still in graph
+            mem[u] = Counter({u: 1})
 
     # -------- Step 4: Restricted SLPA --------
     H = G.subgraph(update_nodes).copy()
-    sub_communities, sub_mem = run_slpa(H, T=10, r=0.3, update_nodes=update_nodes)
+    
+    # Run with a slightly permissive 'r' for the update phase
+    # The final 'r' will be applied in the rebuild step
+    sub_communities, sub_mem = run_slpa(H, T=20, r=0.1, update_nodes=update_nodes) 
 
     # Merge memories back
     for u in sub_mem:
-        mem[u] = sub_mem[u]
+        if u in mem: # Only update memories for nodes that exist
+            mem[u] = sub_mem[u]
 
-    # -------- Step 5: Community repair --------
-    for u in update_nodes:
-        neighbor_comms = Counter()
-        for v in G.neighbors(u):
-            for cid, members in communities.items():
-                if v in members:
-                    neighbor_comms[cid] += 1
-
-        if neighbor_comms:
-            best = neighbor_comms.most_common(1)[0][0]
-            # Remove from all other communities
-            for cid in list(communities.keys()):
-                if u in communities[cid] and cid != best:
-                    communities[cid].remove(u)
-            # Add to best community
-            if u not in communities[best]:
-                communities[best].append(u)
-
-    # -------- Step 6: Rebuild communities --------
+    # -------- STEP 5: Rebuild communities (This was your old Step 6) --------
+    # 'Step 5: Community repair' has been DELETED as it was dead code.
+    # This is now the only, authoritative post-processing step.
+    
     new_communities = defaultdict(list)
-    for v in mem:
+    final_threshold = 0.3 # This is your threshold from old Step 6
+    
+    for v in G.nodes(): # Iterate over all nodes in the main graph
+        if v not in mem or not mem[v]:
+            continue
+        
         total = sum(mem[v].values())
+        if total == 0:
+            continue
+            
         for label, count in mem[v].items():
-            if total > 0 and count / total >= 0.3:
+            if count / total >= final_threshold:
                 new_communities[label].append(v)
+                
     return dict(new_communities), mem
-
 
 # -------------------- Visualization --------------------
 
@@ -166,11 +188,14 @@ def show_graph_with_communities(G, communities, changed_edges=None, title=None):
     # Build community text lines like "C1:[1, 2, 3]"
     comm_items = sorted(communities.items(), key=lambda x: (-len(x[1]), str(x[0])))
     lines = []
+    seen=set()
     for idx, (lab, members) in enumerate(comm_items, start=1):
         members_list = sorted(members)
         members_str = ", ".join(map(str, members_list))
         members_str = shorten(members_str, width=180, placeholder="...")
-        lines.append(f"C{idx}:[{members_str}]")
+        if(members_str not in seen):
+            lines.append(f"C{idx}:[{members_str}]")
+        seen.add(members_str)
     comm_text = "\n".join(lines) if lines else "No communities"
 
     # Add community text box
