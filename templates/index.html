@@ -219,10 +219,18 @@
         </div>
 
         <h2>Analyze</h2>
-        <div class="form-group">
+        <div class="form-group" style="display:none">
             <label for="rec-node">Jaccard Recommendations</label>
-            <input type="number" id="rec-node" placeholder="Enter Node ID">
             <button id="rec-btn">Recommend</button>
+        </div>
+        <div class="form-group">
+            <label>Recommendations</label>
+            <input type="number" id="rec-node" placeholder="Enter Node ID">
+            <button id="weighted-rec-btn">recommend</button>
+        </div>
+        <div id="weighted-recs-output" class="output-pane" style="display:none;">
+            <h3>Weighted Friends</h3>
+            <pre></pre>
         </div>
         <div class="form-group">
             <label>Network Resilience</label>
@@ -239,14 +247,7 @@
             <textarea id="post-text" placeholder="What's on your mind? (Select Active User first)"></textarea>
             <button id="create-post-btn">Post</button>
         </div>
-        <div class="form-group">
-            <label>Weighted Recommendations</label>
-            <button id="weighted-rec-btn">Get Friends (> 50)</button>
-        </div>
-        <div id="weighted-recs-output" class="output-pane" style="display:none;">
-            <h3>Weighted Friends</h3>
-            <pre></pre>
-        </div>
+        
         <div id="comm-output" class="output-pane" style="display:none;">
         <h3>Communities</h3>
         <ul id="comm-list"></ul>
