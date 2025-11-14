@@ -130,7 +130,7 @@ def get_friend_recommendations(G, target_node):
 
     current_friends = set(G.neighbors(target_node))
     candidates = []
-    
+
     print(f"\nAnalyzing network for Node {target_node}...")
     
     for node in G.nodes():
@@ -156,11 +156,15 @@ def get_friend_recommendations(G, target_node):
     candidates.sort(key=lambda x: x[1], reverse=True)
     
     print(f"\n--- 🎯 Top Recommendations for Node {target_node} ---")
+    possible_candidates=[]
     if not candidates:
         print("No suitable recommendations found (no mutual friends).")
     else:
         for i, (cand, score, mutuals) in enumerate(candidates[:3], 1):
+            possible_candidates.append(cand)
             print(f"{i}. Node {cand} (Similarity Score: {score:.2f})")
             print(f"   -> Mutual Friends: {mutuals}")
+    return possible_candidates
+
 
 
