@@ -1,83 +1,64 @@
-🚀 Dynamic Social Network Analyzer
+# 🚀 Dynamic Social Network Analyzer
 
-A full-stack, interactive platform for visualizing, analyzing, and experimenting with dynamic social networks.
-The application supports real-time graph manipulation, community detection, hybrid recommendation systems, and network vulnerability analysis — all through a modern web interface.
+An interactive, full-stack platform for **visualizing**, **analyzing**, and **experimenting** with dynamic social networks. Easily manipulate graphs, detect communities, get recommendations, and analyze network vulnerabilities—all via a modern web interface.
 
-(Tip: Add a screenshot or GIF demo here to showcase the UI!)
+> **Demo:** _(Consider adding a screenshot or GIF here to showcase the UI!)_
 
-🌟 Features
-🔹 Dynamic Graph Visualization
+---
 
-Add, remove, and modify nodes (users) and edges (friendships).
+## 🌟 Features
 
-Weighted edges update automatically based on user interactions.
+- **Dynamic Graph Visualization**
+  - Add, remove, and modify nodes (users) and edges (friendships)
+  - Edge weights update automatically based on user interactions
+  - Built using [`vis.js`](https://visjs.org/) for interactive, real-time graph manipulation
 
-Built using vis.js for interactive graph manipulation.
+- **Social Feed System**
+  - Users can create text-based posts
+  - Posts can be liked, affecting hidden affinity scores in the network
 
-🔹 Social Feed System
+- **Community Detection (SLPA)**
+  - Runs Speaker-Listener Label Propagation Algorithm for overlapping community detection
+  - Visualizes communities live
 
-Users can create text-based posts.
+- **Hybrid Recommendation System**
+  - **Friend Recommendations**
+    - Jaccard similarity (mutual friends)
+    - Plus weighted scores from post-like behaviors
+  - **Post Recommendations**
+    - Collaborative filtering: suggests posts liked by similar users
 
-Posts can be liked, which affects hidden affinity scores in the network graph.
+- **Network Vulnerability Analysis**
+  - Detects and highlights articulation points (critical nodes)
+  - Reveals nodes whose removal fragments the social network
 
-🔹 Community Detection (SLPA)
+- **Bipartite Graph Visualization**
+  - Displays user–post interactions as a separate graph
+  - Analyses engagement/interest patterns
 
-Identifies overlapping communities using the Speaker-Listener Label Propagation Algorithm.
+---
 
-Communities are visualized in real-time.
+## 🛠️ Technology Stack
 
-🔹 Hybrid Recommendation System
-👥 Friend Recommendations
+**Backend**
 
-Combines:
+- Python 3
+- Flask
+- NetworkX
+- Flask-CORS
+- Matplotlib (diagnostics/optional)
 
-Jaccard similarity (mutual friends)
+**Frontend**
 
-Hidden scores based on post-like behavior
+- HTML5 / CSS3
+- JavaScript (ES6+)
+- vis.js for graph rendering
 
-📝 Post Recommendations
+---
 
-Collaborative filtering suggests posts liked by similar users.
+## 📁 Project Structure
 
-🔹 Network Vulnerability Analysis
-
-Detects articulation points (critical nodes).
-
-Highlights nodes whose removal fragments the network.
-
-🔹 Bipartite Graph Visualization
-
-Separate graph showing user–post interactions.
-
-Helps analyze engagement patterns.
-
-🛠️ Technology Stack
-Backend
-
-Python 3
-
-Flask
-
-NetworkX
-
-Flask-CORS
-
-Matplotlib (optional/diagnostics)
-
-Frontend
-
-HTML5
-
-CSS3
-
-JavaScript (ES6+)
-
-vis.js for graph rendering
-
-📁 Project Structure
-
-Your directory should look like this:
-
+```
 /your-project-root
 ├── api_main.py         # Flask server entry point
 ├── recommend.py        # Recommendation algorithms
@@ -87,73 +68,80 @@ Your directory should look like this:
 ├── static/
 │   └── graph.js        # Frontend JS for graph actions
 └── README.md           # Project documentation
+```
 
-⚙️ Installation & Setup
-1️⃣ Clone the repo
-git clone <your-repo-url>
-cd your-project-root
+---
 
-2️⃣ (Optional) Create a virtual environment
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+## ⚙️ Installation & Setup
 
-3️⃣ Install dependencies
-pip install Flask networkx Flask-Cors matplotlib
+1. **Clone the repository**
+    ```bash
+    git clone https://github.com/Radiation444/DSA-Project.git
+    cd DSA-Project
+    ```
 
+2. **(Optional) Create a virtual environment**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate        # On Windows: venv\Scripts\activate
+    ```
 
-Or use requirements.txt:
+3. **Install dependencies**
+    ```bash
+    pip install Flask networkx Flask-Cors matplotlib
+    ```
+    Or with `requirements.txt`:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-pip install -r requirements.txt
+---
 
-▶️ Running the Application
+## ▶️ Running the Application
 
 Start the Flask server:
-
+```bash
 python api_main.py
+```
+Then visit [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
 
+---
 
-Then open your browser at:
+## 📖 API Documentation
 
-http://127.0.0.1:5000
+### Main
+- `GET /`  
+  _Serves the main UI._
 
-📖 API Documentation
-Main
+### Graph Management
+- `POST /api/init`  
+  Initializes or resets the social graph and clears post/score data.
 
-GET /
-Serves the main UI.
+- `POST /api/modify`  
+  Adds or removes nodes/edges.
 
-Graph Management
+- `GET /api/bipartite-graph`  
+  Returns user-post interaction graph.
 
-POST /api/init
-Initializes or resets the social graph and clears post/score data.
+### Analysis & Recommendations
+- `GET /api/recommend/<node_id>`  
+  Friend recommendations using Jaccard similarity.
 
-POST /api/modify
-Adds or removes nodes/edges.
+- `GET /api/recommend-by-weight/<node_id>`  
+  Hybrid friend recommendations combining Jaccard similarity and hidden scores.
 
-GET /api/bipartite-graph
-Returns user-post interaction graph.
+- `GET /api/recommend-posts/<user_id>`  
+  Post recommendations using collaborative filtering.
 
-Analysis & Recommendations
+- `GET /api/attack`  
+  Finds articulation points and returns graph annotated with critical nodes.
 
-GET /api/recommend/<node_id>
-Friend recommendations using Jaccard similarity.
+### Posts & Social Actions
+- `GET /api/posts`  
+  Fetch all posts.
 
-GET /api/recommend-by-weight/<node_id>
-Hybrid friend recommendations combining Jaccard + hidden scores.
+- `POST /api/post/create`  
+  Create a new post for a user.
 
-GET /api/recommend-posts/<user_id>
-Post recommendations using collaborative filtering.
-
-GET /api/attack
-Finds articulation points and returns graph annotated with critical nodes.
-
-Posts & Social Actions
-
-GET /api/posts
-Fetch all posts.
-
-POST /api/post/create
-Create a new post for a user.
-
-POST /api/post/like
-Like a post — updates edge weights & hidden scores.
+- `POST /api/post/like`  
+  Like a post; updates edge weights & hidden scores.
