@@ -1,8 +1,8 @@
 # 🚀 Dynamic Social Network Analyzer
 
-An interactive, full-stack platform for **visualizing**, **analyzing**, and **experimenting** with dynamic social networks. Easily manipulate graphs, detect communities, get recommendations, and analyze network vulnerabilities—all via a modern web interface.
+(NOTE TO THE USER: PLEASE ENSURE THAT EDGE WEIGHTS ARE GREATER THAN 30 IF YOU WANT TO SEE MEANINGFUL COMMUNITIES, BECAUSE THE ALGORITHM IS DESIGNED IN SUCH A WAY THAT EDGES BELOW 30 WEIGHT ARE NOT INCLUDED FOR LABEL PROPAGATION)
 
-> **Demo:** _(Consider adding a screenshot or GIF here to showcase the UI!)_
+An interactive, full-stack platform for **visualizing**, **analyzing**, and **experimenting** with dynamic social networks. Easily manipulate graphs, detect communities, get recommendations, and analyze network vulnerabilities—all via a modern web interface.
 
 ---
 
@@ -20,7 +20,7 @@ An interactive, full-stack platform for **visualizing**, **analyzing**, and **ex
 - **Community Detection (SLPA)**
   - Runs Speaker-Listener Label Propagation Algorithm for overlapping community detection
   - Visualizes communities live
-
+  - (NOTE TO THE USER: PLEASE ENSURE THAT EDGE WEIGHTS ARE GREATER THAN 30 IF YOU WANT TO SEE MEANINGFUL COMMUNITIES, BECAUSE THE ALGORITHM IS      DESIGNED IN SUCH A WAY THAT EDGES BELOW 30 WEIGHT ARE NOT INCLUDED FOR LABEL PROPAGATION)
 - **Hybrid Recommendation System**
   - **Friend Recommendations**
     - Jaccard similarity (mutual friends)
@@ -122,7 +122,8 @@ Then visit [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
 
 - `GET /api/bipartite-graph`  
   Returns user-post interaction graph.
-
+-
+(NOTE TO THE USER: PLEASE ENSURE THAT EDGE WEIGHTS ARE GREATER THAN 30 IF YOU WANT TO SEE MEANINGFUL COMMUNITIES, BECAUSE THE ALGORITHM IS DESIGNED IN SUCH A WAY THAT EDGES BELOW 30 WEIGHT ARE NOT INCLUDED FOR LABEL PROPAGATION)
 ### Analysis & Recommendations
 - `GET /api/recommend/<node_id>`  
   Friend recommendations using Jaccard similarity.
