@@ -9,9 +9,7 @@ class Recommender:
         self.post_text = {}
         self.next_post_id = 1   # posts will be P1, P2, P3...
 
-    # -------------------------------
-    # POST CREATION + INTERACTIONS
-    # -------------------------------
+    # Post creation + interaction
     def create_post(self, user, text):
         post_id = f"P{self.next_post_id}"
         self.next_post_id += 1
@@ -44,17 +42,14 @@ class Recommender:
             except:
                 print("Invalid format. Use: 1 P2")
 
-    # -------------------------------
-    # SIMILARITY (Jaccard)
-    # -------------------------------
+    # Similarity (Jaccard)
     def jaccard(self, a, b):
         if not a and not b:
             return 0
         return len(a & b) / len(a | b)
 
-    # -------------------------------
-    # POST RECOMMENDATION
-    # -------------------------------
+    # Post Recommendation
+
     def recommend(self, user, k=3):
         if user not in self.user_to_posts:
             return []
@@ -83,9 +78,7 @@ class Recommender:
 
         return list(rec_posts)
 
-    # -------------------------------
-    # FRIEND RECOMMENDATION (NEW)
-    # -------------------------------
+    # Friend Recommendation 
     def recommend_friends(self, user, k=3):
         """
         Recommend similar users (friend suggestions)
@@ -107,49 +100,3 @@ class Recommender:
 
         sims.sort(reverse=True)
         return [u for _, u in sims[:k]]
-
-    # -------------------------------
-    # VISUALIZATION
-    # -------------------------------
-    def visualize(self):
-        G = nx.Graph()
-
-        users = list(self.user_to_posts.keys())
-        posts = list(self.post_to_users.keys())
-
-        G.add_nodes_from(users, bipartite=0)
-        G.add_nodes_from(posts, bipartite=1)
-
-        for u in users:
-            for p in self.user_to_posts[u]:
-                G.add_edge(u, p)
-
-        pos = {}
-        pos.update((u, (0, i)) for i, u in enumerate(users))
-        pos.update((p, (1, i)) for i, p in enumerate(posts))
-
-        plt.figure(figsize=(7, 5))
-        nx.draw(G, pos, with_labels=True, node_size=1400)
-        plt.title("User-Post Bipartite Graph")
-        plt.show()
-
-
-# -----------------------------------------
-# MAIN EXECUTION
-# -----------------------------------------
-if __name__ == "__main__":
-    R = Recommender()
-
-    print("=== Add Interactions ===")
-    R.input_interactions()
-
-    print("\n=== Graph Visualization ===")
-    R.visualize()
-
-    print("\n=== Post Recommendations ===")
-    user = int(input("Enter user number (e.g., 1): "))
-    print("Recommended posts:", R.recommend(user))
-
-    print("\n=== Friend Recommendations ===")
-    user = int(input("Enter user number (e.g., 1): "))
-    print("Recommended friends:", R.recommend_friends(user))

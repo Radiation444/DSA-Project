@@ -1,12 +1,8 @@
 import networkx as nx
-import random
-import matplotlib.pyplot as plt
 from collections import Counter, defaultdict, deque
-from textwrap import shorten
 import sys
 import copy
 
-# Increase recursion depth for deep DFS (Tarjan's Algorithm)
 sys.setrecursionlimit(10000)
 
 class NetworkResilience:
@@ -14,7 +10,7 @@ class NetworkResilience:
         self.original_graph = nx.to_dict_of_lists(graph)
         self.time = 0
 
-    # --- Tarjan's Algorithm for Articulation Points ---
+    #  Tarjan's Algorithm for Articulation Points (Removing it would break the netwrok into disconnected components)
     def _find_articulation_points_util(self, u, visited, disc, low, parent, ap_set, current_graph):
         children = 0
         visited[u] = True
@@ -22,6 +18,8 @@ class NetworkResilience:
         low[u] = self.time
         self.time += 1
 
+        #If root has 2+ children, it is AP
+        # If a non-root satisfies low[v] >= disc[u], then u is AP
         for v in current_graph.get(u, []):
             if v == parent[u]:
                 continue
@@ -45,17 +43,17 @@ class NetworkResilience:
             
         self.time = 0
         visited = {node: False for node in graph_snapshot}
-        disc = {node: float('inf') for node in graph_snapshot}
+        disc = {node: float('inf') for node in graph_snapshot} #discovery time of node
         low = {node: float('inf') for node in graph_snapshot}
         parent = {node: -1 for node in graph_snapshot}
-        ap_set = set()
+        ap_set = set() #set of articulation points
 
         for node in graph_snapshot:
             if not visited[node]:
                 self._find_articulation_points_util(node, visited, disc, low, parent, ap_set, graph_snapshot)
         return list(ap_set)
 
-    # --- Helper: Giant Component Size ---
+    # This runs a bfs for every unvisited node and finds component size return size of largest connected components 
     def get_giant_component_size(self, graph_snapshot):
         visited = set()
         max_size = 0
@@ -79,7 +77,7 @@ class NetworkResilience:
 
     # --- Simulation Loop ---
     def simulate_ap_attack(self, aps):
-        print("\n[SYSTEM] Simulating Network Collapse...")
+        print("\nSimulating Network Collapse...")
         current_graph = copy.deepcopy(self.original_graph)
         
         # Sort APs by Degree (Attack the biggest Hubs first)
@@ -94,7 +92,6 @@ class NetworkResilience:
         for target in aps:
             if target not in current_graph: continue
             
-            # Delete Node
             del current_graph[target]
             for node in current_graph:
                 if target in current_graph[node]:
@@ -102,7 +99,6 @@ class NetworkResilience:
             
             nodes_removed_count += 1
             
-            # Measure Damage
             current_lcc = self.get_giant_component_size(current_graph)
             stats.append((nodes_removed_count, current_lcc))
             
@@ -115,10 +111,8 @@ class NetworkResilience:
         return stats
 
 
-# =============================================================================
-# <<< FEATURE 2: FRIEND RECOMMENDATION (Jaccard Index) >>>
-# =============================================================================
 
+#Give friend recommendation for a given node using jaccard coefficient
 def get_friend_recommendations(G, target_node):
     """
     Uses Jaccard Coefficient to find people with high overlap in friends.
@@ -134,7 +128,6 @@ def get_friend_recommendations(G, target_node):
     print(f"\nAnalyzing network for Node {target_node}...")
     
     for node in G.nodes():
-        # Skip self and existing friends
         if node == target_node or node in current_friends:
             continue
             
@@ -155,7 +148,6 @@ def get_friend_recommendations(G, target_node):
     # Sort by score (highest probability first)
     candidates.sort(key=lambda x: x[1], reverse=True)
     
-    print(f"\n--- 🎯 Top Recommendations for Node {target_node} ---")
     possible_candidates=[]
     if not candidates:
         print("No suitable recommendations found (no mutual friends).")
@@ -163,8 +155,53 @@ def get_friend_recommendations(G, target_node):
         for i, (cand, score, mutuals) in enumerate(candidates[:3], 1):
             possible_candidates.append(cand)
             print(f"{i}. Node {cand} (Similarity Score: {score:.2f})")
-            print(f"   -> Mutual Friends: {mutuals}")
     return possible_candidates
 
 
 
+
+def _jaccard(a, b):
+    """
+    Helper function for Jaccard similarity.
+    (a and b are sets)
+    """
+    if not a and not b:
+        return 0
+    try:
+        return len(a & b) / len(a | b)
+    except ZeroDivisionError:
+        return 0
+
+
+# Post recommendation
+def get_post_recommendations(target_user, user_likes_db, k=3):
+    """
+    Recommends posts to a user based on likes from similar users.
+    
+    :param target_user: The int ID of the user to get recommendations for.
+    :param user_likes_db: A dict {user_id: {set_of_post_ids}}
+    :param k: How many similar users to consider.
+    :return: A list of recommended post IDs (e.g., ["P1", "P5"]).
+    """
+    
+    target_posts = user_likes_db.get(target_user, set())
+    sims = [] # Stores (similarity_score, other_user_id)
+
+    for other_user, posts in user_likes_db.items():
+        if other_user == target_user:
+            continue
+            
+        sim = _jaccard(target_posts, posts)
+        if sim > 0:
+            sims.append((sim, other_user))
+
+    sims.sort(reverse=True)
+    similar_users = [u for _, u in sims[:k]]
+
+    rec_posts = set()
+    for u in similar_users:
+        for p in user_likes_db.get(u, set()):
+            if p not in target_posts:
+                rec_posts.add(p)
+                
+    return list(rec_posts)

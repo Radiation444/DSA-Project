@@ -1,16 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-    console.log("%c[graph.js] DOM Loaded – Initializing...", "color: green");
+    console.log("Dom loaded correctly");
 
     const API_URL = "http://127.0.0.1:5000/api";
 
-    // === GLOBAL STATE ===
-    let visNetwork = null;
-    let resilienceChart = null;
+    let visNetwork = null; // for the main graph
+    let bipartiteNetwork = null; // for the user post graphs  
 
     // === DOM ELEMENTS ===
     const dom = {
-        // Original
+        // Basic Graph divs
         initBtn: document.getElementById('init-btn'),
         initData: document.getElementById('init-data'),
         addNodeBtn: document.getElementById('add-node-btn'),
@@ -25,32 +24,33 @@ document.addEventListener("DOMContentLoaded", () => {
         recNode: document.getElementById('rec-node'),
         attackBtn: document.getElementById('attack-btn'),
         graphDiv: document.getElementById('graph'),
-        chartCanvas: document.getElementById('resilience-chart'),
         recsOutput: document.getElementById('recs-output'),
         recsOutputPre: document.querySelector('#recs-output pre'),
         commOutput: document.getElementById('comm-output'),
-        commOutputUl: document.getElementById('comm-list'), // <-- Corrected this ID
+        commOutputUl: document.getElementById('comm-list'),
         statusMessage: document.getElementById('status-message'),
 
-        // --- NEW ---
+        // Post System divs
         activeUserSelect: document.getElementById('active-user-select'),
         postText: document.getElementById('post-text'),
         createPostBtn: document.getElementById('create-post-btn'),
         weightedRecBtn: document.getElementById('weighted-rec-btn'),
         weightedRecsOutput: document.getElementById('weighted-recs-output'),
         weightedRecsOutputPre: document.querySelector('#weighted-recs-output pre'),
-        postFeedList: document.getElementById('post-feed-list')
+        postFeedList: document.getElementById('post-feed-list'),
+        // Bipartite graph divs
+        postRecBtn: document.getElementById('post-rec-btn'),
+        postRecsOutput: document.getElementById('post-recs-output'),
+        postRecsOutputPre: document.querySelector('#post-recs-output pre'),
+        bipartiteGraphDiv: document.getElementById('bipartite-graph')
     };
 
-    // =======================================================
-    // VISUAL GRAPH INITIALIZATION
-    // =======================================================
+    // Initialize inital graph via vis.js
     function initializeGraph() {
         if (!dom.graphDiv) {
             console.error("Graph div NOT FOUND.");
             return;
         }
-        console.log("[graph.js] Creating vis.Network...");
 
         const data = {
             nodes: new vis.DataSet([]),
@@ -63,21 +63,47 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         visNetwork = new vis.Network(dom.graphDiv, data, options);
-        console.log("%cVis Network created.", "color: lightgreen");
+        console.log("Main Graph Network created.");
     }
 
-    // =======================================================
-    // RENDER GRAPH WITH NEW STATE
-    // =======================================================
+    // Bipartite Graph initialization ---
+    function initializeBipartiteGraph() {
+        if (!dom.bipartiteGraphDiv) {
+            console.error("Bipartite graph div NOT FOUND.");
+            return;
+        }
+        console.log("Creating graph for Bipartite user and post");
+
+        const data = {
+            nodes: new vis.DataSet([]),
+            edges: new vis.DataSet([])
+        };
+        const options = {
+            layout: {
+                hierarchical: {
+                    direction: "LR", // Left-to-Right layout
+                    sortMethod: "directed"
+                }
+            },
+            physics: false,
+            edges: {
+                arrows: { to: { enabled: false } }
+            }
+        };
+
+        bipartiteNetwork = new vis.Network(dom.bipartiteGraphDiv, data, options);
+        console.log("Bipartite Graph Network created.");
+    }
+
+    // Render Graph with new state   
     function renderGraph(state) {
-        if (!state) return;
-        console.log("%c[Render Graph]", "color: cyan", state);
+        if (!visNetwork || !state) return;
+        console.log("%c[Render Main Graph]", "color: cyan", state);
 
         const nodes = new vis.DataSet(state.nodes || []);
         const edges = new vis.DataSet(state.edges || []);
         visNetwork.setData({ nodes, edges });
 
-        // === communities ===
         if (state.community_list && state.community_list.length > 0) {
             dom.commOutputUl.innerHTML = state.community_list
                 .map(c => `<li>${c}</li>`).join('');
@@ -85,23 +111,28 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             dom.commOutput.style.display = "none";
         }
-
-        // --- NEW: Update the active user dropdown ---
+        
         populateActiveUserDropdown(state.nodes || []);
     }
 
-    // =======================================================
-    // STATUS MESSAGE
-    // =======================================================
+    // Render Bipartite Graph with new state  
+    function renderBipartiteGraph(state) {
+        if (!bipartiteNetwork || !state) return;
+        console.log("Render Bipartite Graph ");
+        
+        const nodes = new vis.DataSet(state.nodes || []);
+        const edges = new vis.DataSet(state.edges || []);
+        bipartiteNetwork.setData({ nodes, edges });
+    }
+
+    // Status message showed on top of the page
     function showStatus(msg, error = false) {
         dom.statusMessage.style.display = "block";
         dom.statusMessage.textContent = msg;
         dom.statusMessage.style.background = error ? "#ffebee" : "#e6f7ff";
     }
 
-    // =======================================================
-    // API HELPERS
-    // =======================================================
+    // Helper functions for apis
     async function postData(endpoint, payload) {
         try {
             const res = await fetch(`${API_URL}/${endpoint}`, {
@@ -130,18 +161,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // =======================================================
-    // --- NEW: POST SYSTEM HELPERS ---
-    // =======================================================
-
-    /**
-     * Updates the "Active User" dropdown with nodes from the graph
-     */
+    // Helper function for post system
     function populateActiveUserDropdown(nodes) {
         const selected = dom.activeUserSelect.value;
         dom.activeUserSelect.innerHTML = '<option value="">-- Select User --</option>';
-
-        // Sort nodes by ID
         const sortedNodes = [...nodes].sort((a, b) => a.id - b.id);
 
         for (const node of sortedNodes) {
@@ -150,15 +173,11 @@ document.addEventListener("DOMContentLoaded", () => {
             option.textContent = `User ${node.id}`;
             dom.activeUserSelect.appendChild(option);
         }
-        // Re-select the previously active user if they still exist
         if (nodes.find(n => n.id == selected)) {
             dom.activeUserSelect.value = selected;
         }
     }
 
-    /**
-     * Fetches all posts from the server and renders them
-     */
     async function fetchPostFeed() {
         const posts = await getData('posts');
         if (posts) {
@@ -167,7 +186,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 dom.postFeedList.innerHTML = '<p>No posts yet. Create one!</p>';
                 return;
             }
-
             for (const post of posts) {
                 const postDiv = document.createElement('div');
                 postDiv.className = 'post-card';
@@ -180,14 +198,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 dom.postFeedList.appendChild(postDiv);
             }
-            // Add listeners to the new buttons
             addLikeButtonListeners();
         }
     }
+    
+    // Helper to fetch and render bipartite graph
+    async function fetchBipartiteGraph() {
+        const state = await getData('bipartite-graph');
+        if (state) {
+            renderBipartiteGraph(state);
+        }
+    }
 
-    /**
-     * Adds event listeners to all "Like" buttons in the feed
-     */
     function addLikeButtonListeners() {
         dom.postFeedList.querySelectorAll('.like-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -206,14 +228,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const state = await postData('post/like', { user: userId, post_id: postId });
 
                 if (state) {
-                    // The server returns the new graph state!
                     renderGraph(state);
-                    // Also refresh the post feed to update like counts
                     fetchPostFeed();
+                    fetchBipartiteGraph();
                     showStatus(`Like successful! Graph weights updated.`);
                 } else {
-                    // Error was already shown by postData
-                    // We can re-enable the button if the error was "already liked"
                     e.target.disabled = false;
                     e.target.textContent = "Like";
                 }
@@ -221,23 +240,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // =======================================================
-    // --- EVENT HANDLERS (ORIGINAL) ---
-    // =======================================================
-
-    // INIT GRAPH
+    // Event Handler for various buttons do that they hit the respective APIs
     dom.initBtn.addEventListener("click", async () => {
         showStatus("Initializing...");
         const raw = dom.initData.value.trim();
         const state = await postData("init", { edge_data: raw });
         if (state) {
             renderGraph(state);
-            fetchPostFeed(); // <-- NEW: Fetch posts on init
+            fetchPostFeed();
+            fetchBipartiteGraph(); // <-- NEW: Fetch on init
             showStatus("Graph initialized. Post feed cleared.");
         }
     });
 
-    // ADD NODE
     dom.addNodeBtn.addEventListener("click", async () => {
         const n = dom.modNode.value;
         if (!n) return;
@@ -246,7 +261,6 @@ document.addEventListener("DOMContentLoaded", () => {
         dom.modNode.value = "";
     });
 
-    // REMOVE NODE
     dom.remNodeBtn.addEventListener("click", async () => {
         const n = dom.modNode.value;
         if (!n) return;
@@ -255,7 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
         dom.modNode.value = "";
     });
 
-    // ADD / CHANGE EDGE
     dom.addEdgeBtn.addEventListener("click", async () => {
         const u = dom.modEdgeU.value;
         const v = dom.modEdgeV.value;
@@ -264,7 +277,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (state) renderGraph(state);
     });
 
-    // REMOVE EDGE
     dom.remEdgeBtn.addEventListener("click", async () => {
         const u = dom.modEdgeU.value;
         const v = dom.modEdgeV.value;
@@ -272,7 +284,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (state) renderGraph(state);
     });
 
-    // JACCARD RECOMMENDATIONS
     dom.recBtn.addEventListener("click", async () => {
         const node = dom.recNode.value;
         if (!node) {
@@ -287,20 +298,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ATTACK SIMULATION
     dom.attackBtn.addEventListener("click", async () => {
         showStatus("Running attack simulation...");
         const res = await getData("attack");
         if (res.graph_state) renderGraph(res.graph_state);
-        // ... (Chart rendering logic would go here if you add it) ...
+        // Chart logic is removed
         showStatus(res.message || "Attack analysis complete.");
     });
 
-    // =======================================================
-    // --- NEW: EVENT HANDLERS (SOCIAL) ---
-    // =======================================================
-
-    // CREATE POST
+    
     dom.createPostBtn.addEventListener("click", async () => {
         const text = dom.postText.value;
         const userId = dom.activeUserSelect.value;
@@ -320,37 +326,54 @@ document.addEventListener("DOMContentLoaded", () => {
         if (newPost) {
             showStatus("Post created!");
             dom.postText.value = '';
-            fetchPostFeed(); // Refresh the feed
+            fetchPostFeed();
+            fetchBipartiteGraph(); // <-- NEW: Refresh bipartite graph
         }
     });
 
-    // WEIGHTED RECOMMENDATIONS
     dom.weightedRecBtn.addEventListener("click", async () => {
         const userId = dom.recNode.value;
         if (!userId) {
-            showStatus("Please select an 'Active User' to get recommendations for.", true);
+            showStatus("Please select a User ID to get recommendations for.", true);
             return;
         }
 
-        showStatus(`Getting weighted recommendations for User ${userId}...`);
+        showStatus(`Getting friend recommendations for User ${userId}...`);
         const recs = await getData(`recommend-by-weight/${userId}`);
 
         if (recs) {
             if (recs.length === 0) {
-                dom.weightedRecsOutputPre.textContent = "No friends found with weight > 50.";
+                dom.weightedRecsOutputPre.textContent = "No recommendations found.";
             } else {
-                dom.weightedRecsOutputPre.textContent = recs.map(r => `User ${r.user} (Weight: ${r.weight})`).join("\n");
+                dom.weightedRecsOutputPre.textContent = recs.map(r => `User ${r.user} (Weight: ${r.weight}, Reason: ${r.reason})`).join("\n");
             }
             dom.weightedRecsOutput.style.display = "block";
-            showStatus("Weighted recommendation complete.");
+            showStatus("Friend recommendation complete.");
         }
     });
 
-    // =======================================================
-    // FIRST LOAD
-    // =======================================================
+    dom.postRecBtn.addEventListener("click", async () => {
+        const userId = dom.recNode.value;
+        if (!userId) {
+            showStatus("Please select a User ID to get recommendations for.", true);
+            return;
+        }
+
+        showStatus(`Getting post recommendations for User ${userId}...`);
+        const data = await getData(`recommend-posts/${userId}`);
+
+        if (data) {
+            dom.postRecsOutputPre.textContent = data.recommendations.join("\n") || "No recommendations found.";
+            dom.postRecsOutput.style.display = "block";
+            showStatus("Post recommendation complete.");
+        }
+    });
+
+    // Initializations
     initializeGraph();
-    fetchPostFeed(); // Fetch any existing posts on load
+    initializeBipartiteGraph(); // <-- NEW
+    fetchPostFeed();
+    fetchBipartiteGraph(); // <-- NEW
     showStatus("Ready. Load a graph to begin.");
 
 });

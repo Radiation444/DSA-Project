@@ -1,55 +1,43 @@
 import networkx as nx
-import matplotlib.pyplot as plt
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 from textwrap import shorten
-from collections import defaultdict  # <-- IMPORT ADDED
+from collections import defaultdict
+import slpa_dynamic
+import recommend
 
-# --- Import your custom modules ---
-try:
-    import slpa_dynamic
-    import recommend
-except ImportError:
-    print("FATAL ERROR: Make sure 'slpa_dynamic.py' and 'recommend.py' are in the same directory.")
-    exit()
 
-# ==========================================
-# FLASK API SERVER
-# ==========================================
-
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
-# --- Global In-Memory "Database" ---
-# Existing Graph State
+# Kind of a databse for the graph state (stores the entire graph in memory)
 G = nx.Graph()
 communities = {}
 mem = {}
 
-# --- NEW: Global State for Post System ---
+# Global variables for post
 post_db = {}
 post_creator_db = {}
-post_likes_db = defaultdict(set)
+post_likes_db = defaultdict(set) # post_id -> {user1, user2}
+user_likes_db = defaultdict(set) # user_id -> {post1, post2}
 next_post_id = 1
-hidden_scores = defaultdict(int)  # <-- NEW: Hidden score tracker
+hidden_scores = defaultdict(int) 
 
 
-# ==========================================
-# HELPER FUNCTIONS
-# ==========================================
 
+# Helper function 
 def get_full_graph_state(critical_nodes=None, changed_edges=None):
     """
     Creates a complete JSON-serializable snapshot of the current
     graph state, formatted for the vis.js frontend.
-    (This function is unchanged, but its output is now more important)
+    (This function is unchanged)
     """
     if critical_nodes is None:
         critical_nodes = set()
     if changed_edges is None:
         changed_edges = set()
 
-    # 1. Format Nodes for vis.js
     vis_nodes = []
     comm_map = {node: i for i, members in enumerate(communities.values()) for node in members}
 
@@ -65,7 +53,6 @@ def get_full_graph_state(critical_nodes=None, changed_edges=None):
             node_data["group"] = comm_map[node]
         vis_nodes.append(node_data)
 
-    # 2. Format Edges for vis.js
     vis_edges = []
     for u, v, data in G.edges(data=True):
         edge_data = {
@@ -78,7 +65,6 @@ def get_full_graph_state(critical_nodes=None, changed_edges=None):
             edge_data["width"] = 3
         vis_edges.append(edge_data)
 
-    # 3. Format Community List for display
     comm_list = []
     seen = set()
     for idx, (lab, members) in enumerate(sorted(communities.items(), key=lambda x: -len(x[1]))):
@@ -95,23 +81,20 @@ def get_full_graph_state(critical_nodes=None, changed_edges=None):
     }
 
 
-# --- NEW: Helper function for adding weight ---
 def _increment_weight(u, v, amount):
     """
     Safely adds weight to the global graph G.
+    (This function is unchanged)
     """
     u = int(u)
     v = int(v)
 
-    # Rule 1: Don't create self-loops
     if u == v:
         return
-    # Rule 2: Ensure both nodes exist in the graph
     if not G.has_node(u) or not G.has_node(v):
         print(f"Warning: Cannot add edge between non-existent nodes {u} and {v}")
         return
 
-    # Get current weight or 0
     if G.has_edge(u, v):
         current_weight = G[u][v].get('weight', 0)
     else:
@@ -122,56 +105,52 @@ def _increment_weight(u, v, amount):
     print(f"    -> Weight {u}-{v} updated to {new_weight}")
 
 
-# --- NEW: Helper function for hidden scores ---
 def _increment_hidden_score(u, v, amount):
     """
     Increments the hidden score for a pair of users.
+    (This function is unchanged)
     """
     u = int(u)
     v = int(v)
 
     if u == v:
-        return  # No self-scoring
+        return 
 
-    # Create a canonical (sorted) key for the user pair
     key = tuple(sorted((u, v)))
     hidden_scores[key] += amount
     print(f"    -> Hidden score {key} updated to {hidden_scores[key]}")
 
 
-# ==========================================
-# API ENDPOINTS
-# ==========================================
+
+
+# Api endpoints
 
 @app.route('/')
 def home():
     """Serves the frontend HTML page."""
     return render_template('index.html')
 
-
-# --- EXISTING ENDPOINTS (MODIFIED) ---
-
 @app.route('/api/init', methods=['POST'])
 def api_init_graph():
     """
     Initializes or resets the graph.
-    MODIFIED: Also resets the entire post system and hidden scores.
+    Also resets the entire post system and hidden scores.
     """
     print("Initializing/Resetting Graph...")
     global G, communities, mem
-    global post_db, post_creator_db, post_likes_db, next_post_id, hidden_scores
+    global post_db, post_creator_db, post_likes_db, user_likes_db, next_post_id, hidden_scores # <-- user_likes_db added
 
     # Reset Graph
     G = nx.Graph()
     data = request.json
     edge_data = data.get("edge_data", "")
 
-    # --- NEW: Reset Post System State ---
     post_db = {}
     post_creator_db = {}
-    post_likes_db = defaultdict(set)
+    post_likes_db.clear()
+    user_likes_db.clear()  
     next_post_id = 1
-    hidden_scores.clear()  # <-- NEW: Reset hidden scores
+    hidden_scores.clear() 
     # --- End New ---
 
     try:
@@ -184,7 +163,7 @@ def api_init_graph():
                 u, v, w = map(int, parts)
             else:
                 u, v = map(int, parts)
-                w = 1  # Default weight 1 if not specified
+                w = 1
             G.add_edge(u, v, weight=w)
 
         # Add nodes that might not have edges
@@ -270,7 +249,6 @@ def api_recommend(node_id):
 def api_attack():
     """
     Runs the full attack simulation.
-    (Original logic, unchanged)
     """
     if len(G.nodes) < 3:
         return jsonify({"error": "Graph too small to analyze."}), 400
@@ -299,12 +277,13 @@ def api_attack():
     })
 
 
-# --- NEW: POST SYSTEM ENDPOINTS ---
+# Post system endpoints ---
 
 @app.route('/api/posts', methods=['GET'])
 def get_all_posts():
     """
     Gets all posts for the feed.
+    (Original logic, unchanged)
     """
     posts_list = []
     for post_id, text in post_db.items():
@@ -324,6 +303,7 @@ def get_all_posts():
 def create_post():
     """
     Creates a new post.
+    Also updates user_likes_db
     """
     global next_post_id
     data = request.json
@@ -341,6 +321,7 @@ def create_post():
     post_db[post_id] = text
     post_creator_db[post_id] = user
     post_likes_db[post_id].add(user)  # Creator is the first "liker"
+    user_likes_db[user].add(post_id) #  Add to reverse mapping
 
     print(f"User {user} created post {post_id}")
 
@@ -356,6 +337,7 @@ def create_post():
 def like_post():
     """
     Likes a post and updates graph weights OR hidden scores based on new logic.
+    Also updates user_likes_db
     """
     data = request.json
     user_id = int(data.get("user"))
@@ -366,28 +348,25 @@ def like_post():
     if post_id not in post_db:
         return jsonify({"error": f"Post {post_id} does not exist."}), 400
 
-    # Check for duplicate like
     if user_id in post_likes_db[post_id]:
         return jsonify({"error": "User has already liked this post."}), 400
 
-    # Get data for logic
     creator_id = post_creator_db[post_id]
-    # Get all *other* likers (exclude the current user)
     other_likers = post_likes_db[post_id] - {user_id}
 
     print(f"--- Liking Post {post_id} (User: {user_id}) ---")
 
-    # 1. Liker-to-Creator Logic
-    if user_id != creator_id:  # Can't interact with yourself
+    # Liker-to-Creator Logic
+    if user_id != creator_id: 
         if G.has_edge(user_id, creator_id):
             _increment_weight(user_id, creator_id, 10)
         else:
             _increment_hidden_score(user_id, creator_id, 10)
 
-    # 2. Liker-to-Mutuals Logic
+    # Liker-to-Mutuals Logic
     for other_liker in other_likers:
-        if user_id == other_liker: continue  # Should be covered by set op, but safe
-
+        if user_id == other_liker: continue
+        
         if G.has_edge(user_id, other_liker):
             _increment_weight(user_id, other_liker, 5)
         else:
@@ -395,6 +374,7 @@ def like_post():
 
     # 3. Save the new like
     post_likes_db[post_id].add(user_id)
+    user_likes_db[user_id].add(post_id) #Add to reverse mapping
 
     print(f"--- Like Complete ---")
 
@@ -405,59 +385,99 @@ def like_post():
 @app.route('/api/recommend-by-weight/<int:node_id>', methods=['GET'])
 def recommend_by_weight(node_id):
     """
-    New recommendation logic: Returns Jaccard recs AND users with hidden score > 50.
+    Returns Jaccard recs AND users with hidden score > 50.
     """
     if not G.has_node(node_id):
         return jsonify({"error": f"Node {node_id} not in graph."}), 404
 
-    # Use a dict to store final recommendations and avoid duplicates
-    # Format: {user_id: {"user": user_id, "weight": score, "reason": ...}}
     recommendations = {}
 
-    # 1. Get Jaccard Recs (from recommend.py)
-    # This function returns a list of user IDs.
-    print('"reaches')
+    # 1. Get Jaccard Recs
     jaccard_recs = recommend.get_friend_recommendations(G, node_id)
-    print("reached down")
     for rec_id in jaccard_recs:
         if rec_id not in recommendations:
-            # Give Jaccard-only recs a base weight of 0 for sorting
             recommendations[rec_id] = {"user": rec_id, "weight": 0, "reason": "Jaccard"}
 
-    print('Heklha')
     # 2. Get Hidden Score Recs
     for (u, v), score in hidden_scores.items():
         if score <= 50:
             continue
-
+            
         target_rec = -1
         if u == node_id:
             target_rec = v
         elif v == node_id:
             target_rec = u
-        print("Hellow")
-        print(u,v,target_rec)
+        
         if target_rec != -1:
             if target_rec in recommendations:
-                # Already found by Jaccard, update with real score
                 recommendations[target_rec]["weight"] = score
                 recommendations[target_rec]["reason"] += " & Hidden Score"
             else:
-                # Found only via hidden score
                 recommendations[target_rec] = {"user": target_rec, "weight": score, "reason": "Hidden Score"}
 
-
-    # Convert from dict values back to a list
     final_list = list(recommendations.values())
-    # Sort by score (weight) descending
     final_list.sort(key=lambda x: x["weight"], reverse=True)
 
     return jsonify(final_list)
 
 
-# --- Main execution ---
+# Post recommendation endpoint
+@app.route('/api/recommend-posts/<int:user_id>', methods=['GET'])
+def api_recommend_posts(user_id):
+    """
+    Gets post recommendations for a user based on similar users' likes.
+    """
+    if not G.has_node(user_id):
+        return jsonify({"error": f"User {user_id} does not exist."}), 404
+
+    recs = recommend.get_post_recommendations(user_id, user_likes_db)
+    
+    return jsonify({"recommendations": recs})
+
+
+@app.route('/api/bipartite-graph', methods=['GET'])
+def api_get_bipartite_graph():
+    """
+    Generates and returns the node/edge list for the user-post bipartite graph.
+    """
+    vis_nodes = []
+    vis_edges = []
+    
+    users = set()
+    posts = set()
+    
+    for user_id, liked_posts in user_likes_db.items():
+        users.add(user_id)
+        posts.update(liked_posts)
+        for post_id in liked_posts:
+            vis_edges.append({
+                "from": f"u_{user_id}", 
+                "to": f"p_{post_id}"
+            })
+            
+    for u in users:
+        vis_nodes.append({
+            "id": f"u_{u}",
+            "label": f"User {u}",
+            "group": 0, # User group
+            "shape": "dot",
+            "color": "#4ecdc4"
+        })
+        
+    for p in posts:
+        vis_nodes.append({
+            "id": f"p_{p}",
+            "label": p,
+            "group": 1, # Post group
+            "shape": "box",
+            "color": "#FF6B6B"
+        })
+
+    return jsonify({"nodes": vis_nodes, "edges": vis_edges})
+
+
 if __name__ == "__main__":
-    print("--- DYNAMIC COMMUNITY API SERVER ---")
     print("Flask server running...")
     print("Access the frontend at: http://127.0.0.1:5000")
     app.run(debug=True, port=5000)

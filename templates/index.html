@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,90 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Network Analyzer</title>
 
+    <!-- using the vis-network library for graph visualization  -->
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #f4f7f6;
             color: #333;
             margin: 0;
-            padding: 15px;
+            padding: 25px; 
             display: grid;
             grid-template-columns: 380px 1fr;
-            gap: 20px;
-            height: calc(100vh - 30px);
+            gap: 28px;
+            height: calc(100vh - 50px);
         }
+
         h1, h2, h3 {
             border-bottom: 2px solid #ddd;
             padding-bottom: 5px;
             margin-top: 10px;
             color: #1a535c;
         }
+
         .sidebar {
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            padding: 0 20px 20px 20px;
+            padding: 20px 25px 25px 25px; 
             overflow-y: auto;
         }
 
-        /* UPDATED: Main content is now a 2-row grid */
         .main-content {
             display: grid;
-            grid-template-rows: 1fr 1fr; /* Two equal rows */
-            grid-template-columns: 1fr; /* Single column */
+            grid-template-rows: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             height: 100%;
         }
+
         .card {
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            padding: 20px;
+            padding: 25px; 
             box-sizing: border-box;
-            display: flex; /* Make cards flexible */
-            flex-direction: column;
-        }
-
-        / /* UPDATED: Graph container now fills its grid cell */
-        #graph-container {
-            height: 60vh;
             display: flex;
             flex-direction: column;
         }
 
+        #graph-container {
+            height: 60vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 10px;
+        }
+
         #graph {
-            height: calc(60vh - 40px); /* or just 100% */
-            min-height: 300px;         /* optional */
+            height: calc(60vh - 40px);
+            min-height: 300px;
             width: 100%;
         }
 
-        /* UPDATED: Plot container now fills its grid cell */
         #plot-container {
-            height: 100%;
-            min-height: 250px;
+           height: 60vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 10px;
         }
 
-        /* --- NEW: Post Feed Styles --- */
+        #bipartite-graph {
+            height: calc(60vh - 40px);
+            min-height: 300px;
+            width: 100%;
+        }
+
         #feed-container {
             height: 100%;
             min-height: 250px;
+            padding-bottom: 10px;
         }
+
         #post-feed-list {
             flex-grow: 1;
             overflow-y: auto;
         }
+
         .post-card {
             border: 1px solid #eee;
             border-radius: 5px;
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
             background: #fdfdfd;
         }
-        .post-card p { margin: 0 0 10px 0; }
+
         .post-card-footer {
             font-size: 0.85em;
             color: #555;
@@ -97,37 +107,31 @@
             justify-content: space-between;
             align-items: center;
         }
-        .post-card-footer button {
-            padding: 5px 10px;
-            font-size: 0.9em;
-        }
-        .post-card-footer button:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
-        }
-        /* --- End New --- */
 
-        /* Form Styles */
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px; 
         }
+
         .form-group label {
             display: block;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
             font-size: 0.9em;
         }
+
         input[type="text"], input[type="number"], textarea, select {
             width: 100%;
-            padding: 8px;
+            padding: 10px; 
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+
         textarea {
             height: 100px;
             resize: vertical;
         }
+
         button {
             background-color: #1a535c;
             color: white;
@@ -137,10 +141,13 @@
             cursor: pointer;
             font-size: 0.9em;
             margin-right: 5px;
+            margin-top: 6px; 
         }
+
         button:hover {
             background-color: #4ecdc4;
         }
+
         .danger-btn {
             background-color: #ff6b6b;
         }
@@ -148,19 +155,15 @@
             background-color: #ff8e8e;
         }
 
-        /* Output Panes */
         .output-pane {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
             border-radius: 5px;
-            padding: 15px;
-            margin-top: 15px;
+            padding: 18px; 
+            margin-top: 20px;
             font-family: 'Courier New', Courier, monospace;
         }
-        .output-pane h3 {
-            margin-top: 0;
-            border-bottom: 1px solid #ddd;
-        }
+
         #comm-output ul {
             padding-left: 20px;
             margin: 0;
@@ -168,22 +171,26 @@
             max-height: 200px;
             overflow-y: auto;
         }
-        #recs-output pre, #weighted-recs-output pre {
+
+        #recs-output pre, #weighted-recs-output pre, #post-recs-output pre { 
             font-size: 0.9em;
             white-space: pre-wrap;
         }
+
         #status-message {
-            padding: 10px;
+            padding: 12px;
             border-radius: 5px;
+            margin-bottom: 10px;
             background-color: #e6f7ff;
             border: 1px solid #b3e0ff;
             margin-top: 15px;
-            display: none; /* Hidden by default */
+            display: none;
         }
     </style>
 </head>
-<body>
 
+
+<body>
     <div class="sidebar">
         <h1>Controls</h1>
 
@@ -195,6 +202,7 @@
                 <option value="">-- Select User --</option>
             </select>
         </div>
+
         <div class="form-group">
             <h2>Initialize</h2>
             <label for="init-data">Edge List (u v weight)</label>
@@ -209,6 +217,7 @@
             <button id="add-node-btn">Add Node</button>
             <button id="rem-node-btn" class="danger-btn">Remove Node</button>
         </div>
+
         <div class="form-group">
             <label for="mod-edge-u">Edge (Add / Remove / Change)</label>
             <input type="number" id="mod-edge-u" placeholder="Node 1" style="width: 31%">
@@ -223,36 +232,46 @@
             <label for="rec-node">Jaccard Recommendations</label>
             <button id="rec-btn">Recommend</button>
         </div>
+
         <div class="form-group">
-            <label>Recommendations</label>
+            <label>Recommendations for User:</label>
             <input type="number" id="rec-node" placeholder="Enter Node ID">
-            <button id="weighted-rec-btn">recommend</button>
+            <button id="weighted-rec-btn">Recommend Friends</button>
+            <button id="post-rec-btn">Recommend Posts</button> 
         </div>
+
         <div id="weighted-recs-output" class="output-pane" style="display:none;">
             <h3>Weighted Friends</h3>
             <pre></pre>
         </div>
+
+        <div id="post-recs-output" class="output-pane" style="display:none;">
+            <h3>Post Recommendations</h3>
+            <pre></pre>
+        </div>
+
         <div class="form-group">
             <label>Network Resilience</label>
-            <button id="attack-btn" class="danger-btn">Find Vulnerabilities & Simulate Attack</button>
+            <button id="attack-btn" class="danger-btn">Find Vulnerabilities</button>
         </div>
+
         <div id="recs-output" class="output-pane" style="display:none;">
             <h3>Jaccard Recs</h3>
             <pre></pre>
         </div>
 
         <h2>Social Actions</h2>
+
         <div class="form-group">
             <label for="post-text">Create New Post</label>
             <textarea id="post-text" placeholder="What's on your mind? (Select Active User first)"></textarea>
             <button id="create-post-btn">Post</button>
         </div>
-        
-        <div id="comm-output" class="output-pane" style="display:none;">
-        <h3>Communities</h3>
-        <ul id="comm-list"></ul>
-       </div>
 
+        <div id="comm-output" class="output-pane" style="display:none;">
+            <h3>Communities</h3>
+            <ul id="comm-list"></ul>
+        </div>
     </div>
 
     <div class="main-content">
@@ -267,13 +286,13 @@
                 <p>Initialize a graph to see posts.</p>
             </div>
         </div>
+
         <div id="plot-container" class="card">
-            <h2>Resilience Analysis</h2>
-            <canvas id="resilience-chart"></canvas>
+            <h2>User-Post Bipartite Graph</h2>
+            <div id="bipartite-graph"></div>
         </div>
     </div>
+
     <script src="{{ url_for('static', filename='graph.js') }}"></script>
-
-
 </body>
 </html>

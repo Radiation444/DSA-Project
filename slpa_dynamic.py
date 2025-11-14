@@ -1,8 +1,5 @@
-import networkx as nx
 import random
-import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
-from textwrap import shorten
 
 def run_slpa(G, T=20, r=0.25, update_nodes=None):
     """
