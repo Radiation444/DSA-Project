@@ -1,3 +1,5 @@
+import os
+
 import networkx as nx
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
@@ -480,4 +482,5 @@ def api_get_bipartite_graph():
 if __name__ == "__main__":
     print("Flask server running...")
     print("Access the frontend at: http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
