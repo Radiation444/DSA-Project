@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("Dom loaded correctly");
 
-    const API_URL = "http://127.0.0.1:5000/api";
+    const API_URL = "/api";
 
     let visNetwork = null; // for the main graph
     let bipartiteNetwork = null; // for the user post graphs  
